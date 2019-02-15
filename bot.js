@@ -4,6 +4,8 @@
 // bot.js is your bot's main entry point to handle incoming activities.
 
 const { ActivityTypes } = require('botbuilder');
+const uuidv4 = require('uuid/v4');
+const request = require('request');
 
 // Turn counter property
 const TURN_COUNTER_PROPERTY = 'turnCounterProperty';
@@ -25,6 +27,33 @@ class EchoBot {
      *
      * @param {TurnContext} on turn context object.
      */
+
+    translateText(inputText) {
+        let options = {
+            method: 'POST',
+            baseUrl: 'https://api.cognitive.microsofttranslator.com/',
+            url: 'translate',
+            qs: {
+                'api-version': '3.0',
+                'to': 'de'
+            },
+            headers: {
+                'Ocp-Apim-Subscription-Key': 'c1479f0599d84c4fa5fcc199643d7545',
+                'Content-type': 'application/json',
+                'X-ClientTraceId': uuidv4().toString()
+            },
+            body: [{
+                'text': inputText
+            }],
+            json: true
+        };
+        request(options, function(err, res, body) {
+            console.log(`${ err.Message }`);
+            console.log(JSON.stringify(body, null, 4));
+            return JSON.stringify(body, null, 4);
+        });
+    };
+
     async onTurn(turnContext) {
         // Handle message activity type. User's responses via text or speech or card interactions flow back to the bot as Message activity.
         // Message activities may contain text, speech, interactive cards, and binary or unknown attachments.
@@ -33,7 +62,10 @@ class EchoBot {
             // read from state.
             let count = await this.countProperty.get(turnContext);
             count = count === undefined ? 1 : ++count;
-            await turnContext.sendActivity(`${ count }: You said "${ turnContext.activity.text }"`);
+
+            let response = this.translateText(turnContext.activity.text);
+
+            await turnContext.sendActivity(`${ count }: You said "${ response }"`);
             // increment and set turn counter.
             await this.countProperty.set(turnContext, count);
         } else {
