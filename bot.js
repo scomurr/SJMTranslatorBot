@@ -1,80 +1,102 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-// bot.js is your bot's main entry point to handle incoming activities.
+const { ActivityTypes, MessageFactory } = require('botbuilder');
 
-const { ActivityTypes } = require('botbuilder');
-const uuidv4 = require('uuid/v4');
-const request = require('request');
+const ENGLISH_LANGUAGE = 'en';
+const SPANISH_LANGUAGE = 'es';
+const DEFAULT_LANGUAGE = ENGLISH_LANGUAGE;
 
-// Turn counter property
-const TURN_COUNTER_PROPERTY = 'turnCounterProperty';
-
-class EchoBot {
+/**
+ * A simple bot that captures user preferred language and uses state to configure
+ * user's language preference so that middleware translates accordingly when needed.
+ */
+class MultilingualBot {
     /**
-     *
-     * @param {ConversationState} conversation state object
+     * Creates a Multilingual bot.
+     * @param {Object} userState User state object.
+     * @param {Object} languagePreferenceProperty Accessor for language preference property in the user state.
      */
-    constructor(conversationState) {
-        // Creates a new state accessor property.
-        // See https://aka.ms/about-bot-state-accessors to learn more about the bot state and state accessors
-        this.countProperty = conversationState.createProperty(TURN_COUNTER_PROPERTY);
-        this.conversationState = conversationState;
+    constructor(userState, languagePreferenceProperty) {
+        this.languagePreferenceProperty = languagePreferenceProperty;
+        this.userState = userState;
     }
+
     /**
-     *
-     * Use onTurn to handle an incoming activity, received from a user, process it, and reply as needed
-     *
-     * @param {TurnContext} on turn context object.
+     * Every conversation turn for our MultilingualBot will call this method.
+     * There are no dialogs used, since it's "single turn" processing, meaning a single request and
+     * response, with no stateful conversation.
+     * @param {Object} turnContext A TurnContext instance containing all the data needed for processing this conversation turn.
      */
-
-    translateText(inputText) {
-        let options = {
-            method: 'POST',
-            baseUrl: 'https://api.cognitive.microsofttranslator.com/',
-            url: 'translate',
-            qs: {
-                'api-version': '3.0',
-                'to': 'de'
-            },
-            headers: {
-                'Ocp-Apim-Subscription-Key': 'c1479f0599d84c4fa5fcc199643d7545',
-                'Content-type': 'application/json',
-                'X-ClientTraceId': uuidv4().toString()
-            },
-            body: [{
-                'text': inputText
-            }],
-            json: true
-        };
-        request(options, function(err, res, body) {
-            console.log(`${ err.Message }`);
-            console.log(JSON.stringify(body, null, 4));
-            return JSON.stringify(body, null, 4);
-        });
-    };
-
     async onTurn(turnContext) {
-        // Handle message activity type. User's responses via text or speech or card interactions flow back to the bot as Message activity.
-        // Message activities may contain text, speech, interactive cards, and binary or unknown attachments.
-        // see https://aka.ms/about-bot-activity-message to learn more about the message and other activity types
+        // See https://aka.ms/about-bot-activity-message to learn more about the message and other activity types.
         if (turnContext.activity.type === ActivityTypes.Message) {
-            // read from state.
-            let count = await this.countProperty.get(turnContext);
-            count = count === undefined ? 1 : ++count;
+            const text = turnContext.activity.text;
 
-            let response = this.translateText(turnContext.activity.text);
+            // Get the user language preference from the user state.
+            const userLanguage = await this.languagePreferenceProperty.get(turnContext, DEFAULT_LANGUAGE);
 
-            await turnContext.sendActivity(`${ count }: You said "${ response }"`);
-            // increment and set turn counter.
-            await this.countProperty.set(turnContext, count);
-        } else {
-            // Generic handler for all other activity types.
-            await turnContext.sendActivity(`[${ turnContext.activity.type } event detected]`);
+            if (isLanguageChangeRequested(text, userLanguage)) {
+                // If the user requested a language change through the suggested actions with values "es" or "en",
+                // simply change the user's language preference in the user state.
+                // The translation middleware will catch this setting and translate both ways to the user's
+                // selected language.
+                // If Spanish was selected by the user, the reply below will actually be shown in spanish to the user.
+                await this.languagePreferenceProperty.set(turnContext, text);
+                await turnContext.sendActivity(`Your current language code is: ${ text }`);
+            } else if (text.toLowerCase().includes('language')) {
+                // Show the user the possible options for language. The translation middleware
+                // will pick up the language selected by the user and
+                // translate messages both ways, i.e. user to bot and bot to user.
+                // Create an array with the supported languages.
+                const reply = MessageFactory.suggestedActions([SPANISH_LANGUAGE, ENGLISH_LANGUAGE], `Choose your language:`);
+                await turnContext.sendActivity(reply);
+            } else {
+                // echo in chosen language
+                await turnContext.sendActivity(`Echoing back: ${ text }`);
+            }
+            await this.userState.saveChanges(turnContext);
         }
-        // Save state changes
-        await this.conversationState.saveChanges(turnContext);
     }
 }
 
-exports.EchoBot = EchoBot;
+/**
+ * Checks whether the utterance from the user is requesting a language change.
+ * In a production bot, we would use the Microsoft Text Translation API language
+ * detection feature, along with detecting language names.
+ * For the purpose of the sample, we just assume that the user requests language
+ * changes by responding with the language code through the suggested action presented
+ * above or by typing it.
+ * @param {string} utterance the current turn utterance.
+ * @param {string} currentLanguage the current user language.
+ */
+function isLanguageChangeRequested(utterance, currentLanguage) {
+    // If the utterance is empty or the utterance is not a supported language code,
+    // then there is no language change requested
+    if (!utterance) {
+        return false;
+    }
+
+    const cleanedUpUtterance = utterance.toLowerCase().trim();
+
+    if (!isSupportedLanguageCode(cleanedUpUtterance)) {
+        return false;
+    }
+
+    // We know that the utterance is a language code. If the code sent in the utterance
+    // is different from the current language, then a change was indeed requested
+    return cleanedUpUtterance !== currentLanguage;
+}
+
+/**
+ * Checks whether the utterance from the user is one of the 2 supported language codes in this sample
+ * @param {string} utterance the current turn utterance.
+ */
+function isSupportedLanguageCode(utterance) {
+    if (!utterance) {
+        return false;
+    }
+    return utterance === SPANISH_LANGUAGE || utterance === ENGLISH_LANGUAGE;
+}
+
+module.exports.MultilingualBot = MultilingualBot;

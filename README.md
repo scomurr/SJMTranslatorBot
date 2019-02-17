@@ -1,57 +1,135 @@
-# Echo Bot template
+# Multilingual Bot Sample
+Bot Framework v4 multilingual bot sample
 
-This sample shows how to create a simple echo bot with state. The bot maintains a simple counter that increases with each message from the user. This bot example uses [`restify`](https://www.npmjs.com/package/restify). 
+This bot has been created using [Microsoft Bot Framework][1], it shows how to translate incoming and outgoing text using a custom middleware and the [Microsoft Translator Text API](https://docs.microsoft.com/en-us/azure/cognitive-services/translator/).
 
-# Prerequisite to run this bot locally
-- Download the bot code from the Build blade in the Azure Portal
-- Create a file called .env in the root of the project and add the botFilePath and botFileSecret to it
-  - You can find the botFilePath and botFileSecret in the Azure App Service application settings
-  - Your .env file should look like this
+## Prerequisites
+- [Node.js][4] version 8.5 or higher
     ```bash
-    botFilePath=<copy value from App settings>
-    botFileSecret=<copy value from App settings>
+    # determine node version
+    node --version
+    ```
+- [Microsoft Translator Text API key](https://docs.microsoft.com/en-us/azure/cognitive-services/translator/translator-text-how-to-signup)
+
+    To consume the Microsoft Translator Text API, first obtain a key following the instructions in the [Microsoft Translator Text API documentation](https://docs.microsoft.com/en-us/azure/cognitive-services/translator/translator-text-how-to-signup).
+    Paste the key in the `translationKey` setting in the `.env` file, or use your preferred configuration and update the following line in `index.js` with your translation key:
+
+    ```js
+    adapter.use(new TranslatorMiddleware(languagePreferenceProperty, process.env.translatorKey));
     ```
 
-- Run `npm install` in the root of the bot project
-- Finally run `npm start` 
 
+# To try this sample
+- Clone the repository
+    ```bash
+    git clone https://github.com/Microsoft/botbuilder-samples.git
+    ```
+- In a terminal, navigate to `samples/javascript_nodejs/17.multilingual-conversations`
+    ```bash
+    cd samples/javascript_nodejs/17.multilingual-conversations
+    ```
+- Install modules
+    ```bash
+    npm install
+    ```
+- Start the bot
+    ```bash
+    npm start
+    ```
 
-## Testing the bot using Bot Framework Emulator
-[Microsoft Bot Framework Emulator](https://github.com/microsoft/botframework-emulator) is a desktop application that allows bot developers to test and debug their bots on localhost or running remotely through a tunnel.
+# Testing the bot using Bot Framework Emulator **v4**
+[Microsoft Bot Framework Emulator][5] is a desktop application that allows bot developers to test and debug their bots on localhost or running remotely through a tunnel.
 
-- Install the Bot Framework Emulator from [here](https://aka.ms/botframework-emulator)
+- Install the Bot Framework Emulator version 4.2.0 or greater from [here][6]
 
-### Connect to bot using Bot Framework Emulator v4
-- Launch the Bot Framework Emulator
-- File -> Open bot and navigate to the bot project folder
-- Select `<your-bot-name>.bot` file
+## Connect to the bot using Bot Framework Emulator **v4**
+- Launch Bot Framework Emulator
+- File -> Open Bot Configuration
+- Navigate to `samples/javascript_nodejs/17.multilingual-conversations` folder
+- Select `multilingual-conversations.bot` file
 
-# Bot state
-A key to good bot design is to track the context of a conversation, so that your bot remembers things like the answers to previous questions. Depending on what your bot is used for, you may even need to keep track of conversation state or store user related information for longer than the lifetime of one given conversation.
+## Creating a custom middleware
+Translation Middleware: We create a translation middleware than can translate text from bot to user and from user to bot, allowing the creation of multilingual bots.
+Users can specify their language preference, which is stored in the user state. The translation middleware translates to and from the user's preferred language.
 
-In this example, the bot's state is used to track number of messages.
-
- A bot's state is information it remembers in order to respond appropriately to incoming messages. The Bot Builder SDK provides classes for [storing and retrieving state data](https://docs.microsoft.com/en-us/azure/bot-service/bot-builder-howto-v4-state?view=azure-bot-service-4.0&tabs=js) as an object associated with a user or a conversation.
-
-    - Conversation properties help your bot keep track of the current conversation the bot is having with the user. If your bot needs to complete a sequence of steps or switch between conversation topics, you can use conversation properties to manage steps in a sequence or track the current topic. Since conversation properties reflect the state of the current conversation, you typically clear them at the end of a session, when the bot receives an end of conversation activity.
-
-    - User properties can be used for many purposes, such as determining where the user's prior conversation left off or simply greeting a returning user by name. If you store a user's preferences, you can use that information to customize the conversation the next time you chat. For example, you might alert the user to a news article about a topic that interests her, or alert a user when an appointment becomes available. You should clear them if the bot receives a delete user data activity.
+## Microsoft Translator Text API
+The [Microsoft Translator Text API](https://docs.microsoft.com/en-us/azure/cognitive-services/translator/), Microsoft Translator Text API is a cloud-based machine translation service. With this API you can translate text in near real-time from any app or service through a simple REST API call.
+The API uses the most modern neural machine translation technology, as well as offering statistical machine translation technology.
 
 # Deploy this bot to Azure
-You can use the [MSBot](https://github.com/microsoft/botbuilder-tools) Bot Builder CLI tool to clone and configure any services this sample depends on. 
+## Prerequisites
+- [Azure Deployment Prerequisites][41]
 
-To install all Bot Builder tools - 
+## Provision a Bot with Azure Bot Service
+After creating the bot and testing it locally, you can deploy it to Azure to make it accessible from anywhere.  To deploy your bot to Azure:
+
 ```bash
-npm i -g msbot chatdown ludown qnamaker luis-apis botdispatch luisgen
+# login to Azure
+az login
 ```
 
-To clone this bot, run
+```bash
+# set you Azure subscription
+az account set --subscription "<azure-subscription>"
 ```
-msbot clone services -f deploymentScripts/msbotClone -n <BOT-NAME> -l <Azure-location> --subscriptionId <Azure-subscription-id>
+
+```bash
+# provision Azure Bot Services resources to host your bot
+msbot clone services --name "<your_bot_name>" --code-dir "." --location westus --sdkLanguage "Node" --folder deploymentScripts/msbotClone --verbose
 ```
+
+### Add `translationKey` to Application Settings
+If you used the `.env` file to store your `translationKey` then you'll need to add this key and its value to the Application Settings for your deployed bot.
+- Log into the [Azure portal][10]
+- In the left nav, click on `Bot Services`
+- Click the `<your_bot_name>` Name to display the bot's Web App Settings
+- Click the `Application Settings`
+- Scroll to the `Application settings` section
+- Click `+ Add new setting`
+- Add the key `translationKey` with a value of the Translator Text API `Authentication key` created from the steps above
+
+
+### Publishing Changes to Azure Bot Service
+As you make changes to your bot running locally, and want to deploy those change to Azure Bot Service, you can _publish_ those change using either `publish.cmd` if you are on Windows or `./publish` if you are on a non-Windows platform.  The following is an example of publishing
+
+```bash
+# run the publish helper (non-Windows) to update Azure Bot Service.  Use publish.cmd if running on Windows
+./publish
+```
+
+### Getting Additional Help Deploying to Azure
+To learn more about deploying a bot to Azure, see [Deploy your bot to Azure][40] for a complete list of deployment instructions.
 
 # Further reading
-- [Azure Bot Service Introduction](https://docs.microsoft.com/en-us/azure/bot-service/bot-service-overview-introduction?view=azure-bot-service-4.0)
-- [Bot State](https://docs.microsoft.com/en-us/azure/bot-service/bot-builder-storage-concept?view=azure-bot-service-4.0)
-- [Write directly to storage](https://docs.microsoft.com/en-us/azure/bot-service/bot-builder-howto-v4-storage?view=azure-bot-service-4.0&tabs=jsechoproperty%2Ccsetagoverwrite%2Ccsetag)
-- [Managing conversation and user state](https://docs.microsoft.com/en-us/azure/bot-service/bot-builder-howto-v4-state?view=azure-bot-service-4.0&tabs=js)
+- [Bot Framework Documentation][20]
+- [Bot Basics][32]
+- [Bot State][23]
+- [Activity processing][25]
+- [Azure Bot Service Introduction][21]
+- [Azure Bot Service Documentation][22]
+- [Azure CLI][7]
+- [msbot CLI][9]
+- [Azure Portal][10]
+- [Language Understanding using LUIS][11]
+- [Restify][30]
+- [dotenv][31]
+
+[1]: https://dev.botframework.com
+[4]: https://nodejs.org
+[5]: https://github.com/microsoft/botframework-emulator
+[6]: https://github.com/Microsoft/BotFramework-Emulator/releases
+[7]: https://docs.microsoft.com/en-us/cli/azure/?view=azure-cli-latest
+[8]: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest
+[9]: https://github.com/Microsoft/botbuilder-tools/tree/master/packages/MSBot
+[10]: https://portal.azure.com
+[11]: https://www.luis.ai
+[20]: https://docs.botframework.com
+[21]: https://docs.microsoft.com/en-us/azure/bot-service/bot-service-overview-introduction?view=azure-bot-service-4.0
+[22]: https://docs.microsoft.com/en-us/azure/bot-service/?view=azure-bot-service-4.0
+[23]: https://docs.microsoft.com/en-us/azure/bot-service/bot-builder-storage-concept?view=azure-bot-service-4.0
+[25]: https://docs.microsoft.com/en-us/azure/bot-service/bot-builder-concept-activity-processing?view=azure-bot-service-4.0
+[30]: https://www.npmjs.com/package/restify
+[31]: https://www.npmjs.com/package/dotenv
+[32]: https://docs.microsoft.com/en-us/azure/bot-service/bot-builder-basics?view=azure-bot-service-4.0
+[40]: https://aka.ms/azuredeployment
+[41]: ./PREREQUISITES.md
