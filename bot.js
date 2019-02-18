@@ -1,7 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-const { ActivityTypes, MessageFactory } = require('botbuilder');
+// const { ActivityTypes, MessageFactory } = require('botbuilder');
+const { ActivityTypes } = require('botbuilder');
 
 const ENGLISH_LANGUAGE = 'en';
 const SPANISH_LANGUAGE = 'es';
@@ -49,7 +50,10 @@ class MultilingualBot {
                 // will pick up the language selected by the user and
                 // translate messages both ways, i.e. user to bot and bot to user.
                 // Create an array with the supported languages.
-                const reply = MessageFactory.suggestedActions([SPANISH_LANGUAGE, ENGLISH_LANGUAGE], `Choose your language:`);
+                // const reply = MessageFactory.suggestedActions([SPANISH_LANGUAGE, ENGLISH_LANGUAGE], `Choose your language:`);
+                // replacing the mesage factory as it does not seem to render in Teams
+                // if adding back the mssage factor you need to reclare at the top of the file
+                const reply = 'Choose your language: EN|ES';
                 await turnContext.sendActivity(reply);
             } else {
                 // echo in chosen language
